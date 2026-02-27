@@ -85,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({ env, version, metro, android, io
   return (
     <Box flexDirection="row" justifyContent="space-between" alignItems="flex-start" paddingX={1}>
       {/* Left: env info */}
-      <Box flexDirection="column">
+      <Box flexDirection="column" borderStyle="round" borderColor="#00bfff" paddingX={1}>
         <InfoRow icon="⬡" label={t.header.node}    value={env.nodeVersion} />
         <InfoRow icon="⌂" label={t.header.path}    value={shortPath} valueColor="white" />
         <InfoRow icon="⎇" label={t.header.branch}  value={git.branch ?? 'n/a'} valueColor="#adff2f" />
