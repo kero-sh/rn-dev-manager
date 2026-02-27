@@ -1,5 +1,6 @@
 export const en = {
   header: {
+    title: 'Environment',
     node: 'Node',
     path: 'Path',
     branch: 'Branch',

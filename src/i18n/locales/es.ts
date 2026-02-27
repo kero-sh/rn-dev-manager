@@ -2,6 +2,7 @@ import { Locale } from './en.js';
 
 export const es: Locale = {
   header: {
+    title: 'Entorno',
     node: 'Node',
     path: 'Ruta',
     branch: 'Rama',
