@@ -84,39 +84,42 @@ export const Header: React.FC<HeaderProps> = ({ env, version, metro, android, io
   const shortPath = shortenPath(env.appRoot);
 
   return (
-    <Box flexDirection="row" justifyContent="space-between" alignItems="stretch" paddingX={1}>
-      {/* Left: env info */}
-      <Box flexDirection="column" alignItems="flex-start" borderStyle="round" borderColor="#00bfff" paddingX={1}>
-        <InfoRow icon="⬡" label={t.header.node}    value={env.nodeVersion} />
-        <InfoRow icon="⌂" label={t.header.path}    value={shortPath} valueColor="white" />
-        <InfoRow icon="⎇" label={t.header.branch}  value={git.branch ?? 'n/a'} valueColor="#adff2f" />
-        <Box>
-          <Text color="#1e90ff">{'±'.padEnd(COL_ICON)}</Text>
-          <Text color="white" dimColor>{t.header.diff.padEnd(COL_LABEL)}</Text>
-          <Text color="white" dimColor>{': '}</Text>
-          {git.changedFiles > 0 ? (
-            <>
-              <Text color="#808080">{git.changedFiles} files  </Text>
-              {git.additions > 0 && <Text color="#adff2f">+{git.additions} </Text>}
-              {git.deletions > 0 && <Text color="#ff4500">-{git.deletions}</Text>}
-            </>
-          ) : (
-            <Text color="#808080">{t.header.diffClean}</Text>
-          )}
+    <Box flexDirection="row" alignItems="stretch">
+      {/* Left + Center: equal-width auto-grow pair */}
+      <Box flexDirection="row" flexGrow={1} alignItems="stretch">
+        {/* Left: env info */}
+        <Box flexDirection="column" alignItems="flex-start" flexGrow={1} borderStyle="round" borderColor="#00bfff" paddingX={1}>
+          <InfoRow icon="⬡" label={t.header.node}    value={env.nodeVersion} />
+          <InfoRow icon="⌂" label={t.header.path}    value={shortPath} valueColor="white" />
+          <InfoRow icon="⎇" label={t.header.branch}  value={git.branch ?? 'n/a'} valueColor="#adff2f" />
+          <Box>
+            <Text color="#1e90ff">{'±'.padEnd(COL_ICON)}</Text>
+            <Text color="white" dimColor>{t.header.diff.padEnd(COL_LABEL)}</Text>
+            <Text color="white" dimColor>{': '}</Text>
+            {git.changedFiles > 0 ? (
+              <>
+                <Text color="#808080">{git.changedFiles} files  </Text>
+                {git.additions > 0 && <Text color="#adff2f">+{git.additions} </Text>}
+                {git.deletions > 0 && <Text color="#ff4500">-{git.deletions}</Text>}
+              </>
+            ) : (
+              <Text color="#808080">{t.header.diffClean}</Text>
+            )}
+          </Box>
+          <InfoRow icon="⚙" label={t.header.pkgMgr} value={env.packageManager + (env.isMonorepo ? ` · ${t.header.monorepo}` : '')} valueColor="#ffa07a" />
         </Box>
-        <InfoRow icon="⚙" label={t.header.pkgMgr} value={env.packageManager + (env.isMonorepo ? ` · ${t.header.monorepo}` : '')} valueColor="#ffa07a" />
-      </Box>
 
-      {/* Center: process status */}
-      <Box flexDirection="column" alignItems="flex-start" paddingX={2} borderStyle="round" borderColor="#00bfff">
-        <Text color="#00ffff" bold>{t.status.title}</Text>
-        <StatusRow label={t.status.metro + ':'} state={metro} />
-        <StatusRow label={t.status.android + ':'} state={android} />
-        <StatusRow label={t.status.ios + ':'} state={ios} />
+        {/* Center: process status */}
+        <Box flexDirection="column" alignItems="flex-start" flexGrow={1} paddingX={2} borderStyle="round" borderColor="#00bfff">
+          <Text color="#00ffff" bold>{t.status.title}</Text>
+          <StatusRow label={t.status.metro + ':'} state={metro} />
+          <StatusRow label={t.status.android + ':'} state={android} />
+          <StatusRow label={t.status.ios + ':'} state={ios} />
+        </Box>
       </Box>
 
       {/* Right: logo + version + layout badge */}
-      <Box flexDirection="column" alignItems="flex-end">
+      <Box flexDirection="column" alignItems="flex-end" paddingX={1}>
         {ASCII_LOGO.map((line, i) => (
           <Text key={i} color="#00ffff" bold>{line}</Text>
         ))}
