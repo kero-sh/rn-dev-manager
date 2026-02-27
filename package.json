@@ -14,10 +14,10 @@
   "author": "",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://github.com/carlosherrera/rn-dev-manager",
+  "homepage": "https://github.com/kero-sh/rn-dev-manager",
   "repository": {
     "type": "git",
-    "url": "https://github.com/carlosherrera/rn-dev-manager.git"
+    "url": "https://github.com/kero-sh/rn-dev-manager.git"
   },
   "engines": {
     "node": ">=18.0.0"
