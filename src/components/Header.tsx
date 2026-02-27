@@ -18,6 +18,7 @@ interface HeaderProps {
 
 const COL_ICON = 3;
 const COL_LABEL = 8;
+const COL_STATUS_LABEL = 10;
 
 function shortenPath(full: string): string {
   const home = os.homedir();
@@ -49,7 +50,7 @@ const StatusRow: React.FC<{ label: string; state: ProcessState }> = ({ label, st
   const isBuilding = state.status === 'building';
   return (
     <Box>
-      <Text color="white" dimColor>{label.padEnd(9)}</Text>
+      <Text color="white" dimColor>{label.padEnd(COL_STATUS_LABEL)}</Text>
       {isBuilding ? (
         <Text color="#ff8c00"><Spinner type="dots" />{' '}</Text>
       ) : (
@@ -83,9 +84,9 @@ export const Header: React.FC<HeaderProps> = ({ env, version, metro, android, io
   const shortPath = shortenPath(env.appRoot);
 
   return (
-    <Box flexDirection="row" justifyContent="space-between" alignItems="flex-start" paddingX={1}>
+    <Box flexDirection="row" justifyContent="space-between" alignItems="stretch" paddingX={1}>
       {/* Left: env info */}
-      <Box flexDirection="column" borderStyle="round" borderColor="#00bfff" paddingX={1}>
+      <Box flexDirection="column" alignItems="flex-start" borderStyle="round" borderColor="#00bfff" paddingX={1}>
         <InfoRow icon="⬡" label={t.header.node}    value={env.nodeVersion} />
         <InfoRow icon="⌂" label={t.header.path}    value={shortPath} valueColor="white" />
         <InfoRow icon="⎇" label={t.header.branch}  value={git.branch ?? 'n/a'} valueColor="#adff2f" />
@@ -107,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({ env, version, metro, android, io
       </Box>
 
       {/* Center: process status */}
-      <Box flexDirection="column" alignItems="center" paddingX={2} borderStyle="round" borderColor="#00bfff">
+      <Box flexDirection="column" alignItems="flex-start" paddingX={2} borderStyle="round" borderColor="#00bfff">
         <Text color="#00ffff" bold>{t.status.title}</Text>
         <StatusRow label={t.status.metro + ':'} state={metro} />
         <StatusRow label={t.status.android + ':'} state={android} />
