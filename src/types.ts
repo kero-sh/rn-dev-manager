@@ -5,12 +5,21 @@ export interface ProcessState {
   pid?: number;
 }
 
+export type LogLayout = 'grid' | 'rows' | 'merged';
+
 export interface AppState {
   metro: ProcessState;
   android: ProcessState;
   ios: ProcessState;
-  logs: LogEntry[];
-  showLogs: boolean;
+  systemLogs: LogEntry[];
+  metroLogs: LogEntry[];
+  buildLogs: LogEntry[];
+  liveLogs: LogEntry[];
+  showSystemLogs: boolean;
+  showMetroLogs: boolean;
+  showBuildLogs: boolean;
+  showLiveLogs: boolean;
+  logLayout: LogLayout;
   confirmation: ConfirmationState | null;
 }
 

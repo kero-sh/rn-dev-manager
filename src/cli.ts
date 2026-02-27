@@ -7,7 +7,7 @@ import { App } from './App.js';
 async function main() {
   const env = await detectEnvironment(process.cwd());
 
-  const { waitUntilExit } = render(React.createElement(App, { env }));
+  const { waitUntilExit } = render(React.createElement(App, { env }), { exitOnCtrlC: false });
 
   await waitUntilExit();
   process.exit(0);

@@ -51,6 +51,7 @@ const processes: {
   metro?: ExecaChildProcess;
   android?: ExecaChildProcess;
   ios?: ExecaChildProcess;
+  deviceLogs?: ExecaChildProcess;
 } = {};
 
 let metroDetachedPid: number | undefined;
@@ -199,6 +200,24 @@ export async function killOrphanMetro(
   onLog({ source: 'system', level: 'info', text: t.processManager.orphansKilled(toKill.length), timestamp: new Date() });
 }
 
+export function startDeviceLogs(
+  platform: 'android' | 'ios',
+  onLog: LogCallback
+): void {
+  if (processes.deviceLogs) return;
+  const cmd = platform === 'android' ? 'log-android' : 'log-ios';
+  const proc = execa('npx', ['react-native', cmd], { reject: false });
+  processes.deviceLogs = proc;
+  attachOutput(proc, platform, onLog);
+  proc.on('exit', () => { delete processes.deviceLogs; });
+}
+
+export function stopDeviceLogs(): void {
+  const pid = processes.deviceLogs?.pid;
+  if (pid) treeKill(pid, 'SIGTERM');
+  delete processes.deviceLogs;
+}
+
 export async function runAndroid(
   env: RNEnvironment,
   onLog: LogCallback,
@@ -216,6 +235,7 @@ export async function runAndroid(
 
   proc.on('spawn', () => {
     onStatus('android', 'building', proc.pid);
+    startDeviceLogs('android', onLog);
   });
 
   proc.on('exit', (code) => {
@@ -243,6 +263,7 @@ export async function runIOS(
 
   proc.on('spawn', () => {
     onStatus('ios', 'building', proc.pid);
+    startDeviceLogs('ios', onLog);
   });
 
   proc.on('exit', (code) => {
@@ -276,6 +297,8 @@ export async function runInstall(
 }
 
 export async function stopAll(onLog: LogCallback, onStatus: StatusCallback) {
+  stopDeviceLogs();
+
   const pids: Array<{ name: 'metro' | 'android' | 'ios'; pid: number }> = [];
 
   for (const key of ['metro', 'android', 'ios'] as const) {
