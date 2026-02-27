@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { createRequire } from 'module';
 import { Box, useApp, useInput } from 'ink';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { Header } from './components/Header.js';
@@ -24,7 +25,8 @@ import { AppState, LogEntry, LogLayout, ProcessStatus } from './types.js';
 import { useNavigation, NavAction } from './hooks/useNavigation.js';
 import type { LogChannel } from './components/LogsPanel.js';
 
-const VERSION = '0.1.0';
+const _require = createRequire(import.meta.url);
+const VERSION: string = _require('../package.json').version;
 
 const LAYOUT_CYCLE: LogLayout[] = ['grid', 'rows', 'merged'];
 
@@ -93,15 +95,15 @@ export const App: React.FC<AppProps> = ({ env }) => {
     { id: 'android',    key: 'a',       label: t.keys.android },
     { id: 'ios',        key: 'i',       label: t.keys.ios },
     { id: 'stop',       key: 'x',       label: t.keys.stop },
-    { id: 'install',    key: 'I',       label: t.keys.install },
-    { id: 'kill',       key: 'K',       label: t.keys.killOrphans },
+    { id: 'install',    key: 'Ctrl+I',  label: t.keys.install },
+    { id: 'kill',       key: 'k',       label: t.keys.killOrphans },
     { id: 'reset',      key: 'F5',      label: t.keys.reset },
     { id: 'fullreset',  key: 'Ctrl+F5', label: t.keys.fullReset },
     { id: 'logs',       key: 'l',       label: t.keys.logs },
     { id: 'metrologs',  key: 'm',       label: t.keys.metroLogs },
     { id: 'buildlogs',  key: 'd',       label: t.keys.buildLogs },
     { id: 'livelogs',   key: 'e',       label: t.keys.liveLogs },
-    { id: 'view',       key: 'V',       label: t.keys.toggleView },
+    { id: 'view',       key: 'v',       label: t.keys.toggleView },
     { id: 'quit',       key: 'q',       label: t.keys.quit },
   ], []);
 
@@ -153,10 +155,10 @@ export const App: React.FC<AppProps> = ({ env }) => {
     if (input === 's') { setState((prev) => ({ ...prev, metroLogs: [] })); startMetro(env, addLog, setStatus); return; }
     if (input === 'r') { setState((prev) => ({ ...prev, metroLogs: [] })); stopMetro(addLog, setStatus, env.appRoot).then(() => startMetro(env, addLog, setStatus)); return; }
     if (input === 'a') { runAndroid(env, addLog, setStatus); return; }
-    if (input === 'i') { runIOS(env, addLog, setStatus); return; }
+    if (input === 'i' && !key.ctrl) { runIOS(env, addLog, setStatus); return; }
     if (input === 'x') { stopAll(addLog, setStatus); return; }
-    if (input === 'I') { setState((prev) => ({ ...prev, metroLogs: [] })); runInstall(env, addLog, setStatus); return; }
-    if (input === 'K') { killOrphanMetro(env.appRoot, addLog, setStatus); return; }
+    if (key.ctrl && input === 'i') { setState((prev) => ({ ...prev, metroLogs: [] })); runInstall(env, addLog, setStatus); return; }
+    if (input.toLowerCase() === 'k') { killOrphanMetro(env.appRoot, addLog, setStatus); return; }
 
     if (input === '\u001b[15~') {
       setState((prev) => ({ ...prev, metroLogs: [] }));
@@ -172,7 +174,7 @@ export const App: React.FC<AppProps> = ({ env }) => {
     if (input === 'm') { setState((prev) => ({ ...prev, showMetroLogs: !prev.showMetroLogs })); return; }
     if (input === 'd') { setState((prev) => ({ ...prev, showBuildLogs: !prev.showBuildLogs })); return; }
     if (input === 'e') { setState((prev) => ({ ...prev, showLiveLogs: !prev.showLiveLogs })); return; }
-    if (input === 'V') { cycleLayout(); return; }
+    if (input.toLowerCase() === 'v') { cycleLayout(); return; }
 
     if (nav.focusedPanel === 'logs') {
       if (key.upArrow) {

@@ -70,6 +70,7 @@ export const en = {
   },
   processManager: {
     metroAlreadyRunning: (pid: number) => `Metro is already running (pid: ${pid}). Use Stop first to restart it.`,
+    metroReattached: (pid: number) => `Metro already running (pid: ${pid}). Reattached.`,
     startingMetro: (resetCache: boolean) => `Starting Metro${resetCache ? ' (--reset-cache)' : ''}...`,
     metroExited: (code: number | null) => `Metro exited (code ${code})`,
     stoppingMetro: 'Stopping Metro...',

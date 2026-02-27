@@ -83,10 +83,14 @@ export async function startMetro(
 ) {
   if (processes.metro) return;
   if (metroDetachedPid && isProcessAlive(metroDetachedPid)) {
-    onLog({ source: 'system', level: 'info', text: t.processManager.metroAlreadyRunning(metroDetachedPid), timestamp: new Date() });
+    onLog({ source: 'system', level: 'info', text: t.processManager.metroReattached(metroDetachedPid), timestamp: new Date() });
+    onStatus('metro', 'running', metroDetachedPid);
     return;
   }
   metroDetachedPid = undefined;
+
+  const reattached = await reattachMetro(env.appRoot, onLog, onStatus);
+  if (reattached) return;
 
   onStatus('metro', 'building');
   const args = ['react-native', 'start'];

@@ -72,6 +72,7 @@ export const es: Locale = {
   },
   processManager: {
     metroAlreadyRunning: (pid: number) => `Metro ya está corriendo (pid: ${pid}). Usa Stop primero para reiniciarlo.`,
+    metroReattached: (pid: number) => `Metro ya estaba corriendo (pid: ${pid}). Reconectado.`,
     startingMetro: (resetCache: boolean) => `Iniciando Metro${resetCache ? ' (--reset-cache)' : ''}...`,
     metroExited: (code: number | null) => `Metro finalizó (código ${code})`,
     stoppingMetro: 'Deteniendo Metro...',
