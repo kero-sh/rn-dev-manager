@@ -181,10 +181,9 @@ export async function killOrphanMetro(
 ): Promise<void> {
   const pids = await findOrphanMetroPids();
 
-  // Only exclude processes we actively own (spawned this session with a live handle).
-  // metroDetachedPid is itself an orphan — it should be killed too.
+  // Exclude any process we are actively using: the spawned handle and the reattached/detached pid.
   const activePid = processes.metro?.pid;
-  const toKill = pids.filter((p) => p !== activePid);
+  const toKill = pids.filter((p) => p !== activePid && p !== metroDetachedPid);
 
   if (toKill.length === 0) {
     onLog({ source: 'system', level: 'info', text: t.processManager.noOrphans, timestamp: new Date() });
@@ -195,11 +194,6 @@ export async function killOrphanMetro(
     onLog({ source: 'system', level: 'warn', text: t.processManager.killingOrphan(pid), timestamp: new Date() });
     treeKill(pid, 'SIGTERM');
   }
-
-  const pidFile = pidFilePath(appRoot);
-  if (fs.existsSync(pidFile)) fs.rmSync(pidFile);
-  metroDetachedPid = undefined;
-  onStatus('metro', 'idle');
 
   onLog({ source: 'system', level: 'info', text: t.processManager.orphansKilled(toKill.length), timestamp: new Date() });
 }
@@ -300,7 +294,7 @@ export async function runInstall(
   }
 }
 
-export async function stopAll(onLog: LogCallback, onStatus: StatusCallback) {
+export async function stopAll(onLog: LogCallback, onStatus: StatusCallback, appRoot?: string) {
   stopDeviceLogs();
 
   const pids: Array<{ name: 'metro' | 'android' | 'ios'; pid: number }> = [];
@@ -310,6 +304,15 @@ export async function stopAll(onLog: LogCallback, onStatus: StatusCallback) {
     if (proc?.pid) {
       pids.push({ name: key, pid: proc.pid });
       delete processes[key];
+    }
+  }
+
+  if (metroDetachedPid && !pids.find((p) => p.name === 'metro')) {
+    pids.push({ name: 'metro', pid: metroDetachedPid });
+    metroDetachedPid = undefined;
+    if (appRoot) {
+      const pf = pidFilePath(appRoot);
+      if (fs.existsSync(pf)) fs.rmSync(pf);
     }
   }
 

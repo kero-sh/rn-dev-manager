@@ -129,10 +129,10 @@ export const App: React.FC<AppProps> = ({ env }) => {
         if (ch === 'd') {
           detachMetro(env.appRoot, addLog, setStatus);
           setState((prev) => ({ ...prev, confirmation: null }));
-          stopAll(addLog, setStatus).then(() => exit());
+          stopAll(addLog, setStatus, env.appRoot).then(() => exit());
         } else if (ch === 'q' || key.escape) {
           setState((prev) => ({ ...prev, confirmation: null }));
-          stopAll(addLog, setStatus).then(() => exit());
+          stopAll(addLog, setStatus, env.appRoot).then(() => exit());
         }
         return;
       }
@@ -156,7 +156,7 @@ export const App: React.FC<AppProps> = ({ env }) => {
     if (input === 'r') { setState((prev) => ({ ...prev, metroLogs: [] })); stopMetro(addLog, setStatus, env.appRoot).then(() => startMetro(env, addLog, setStatus)); return; }
     if (input === 'a') { runAndroid(env, addLog, setStatus); return; }
     if (input === 'i' && !key.ctrl) { runIOS(env, addLog, setStatus); return; }
-    if (input === 'x') { stopAll(addLog, setStatus); return; }
+    if (input === 'x') { stopAll(addLog, setStatus, env.appRoot); return; }
     if (key.ctrl && input === 'i') { setState((prev) => ({ ...prev, metroLogs: [] })); runInstall(env, addLog, setStatus); return; }
     if (input.toLowerCase() === 'k') { killOrphanMetro(env.appRoot, addLog, setStatus); return; }
 
@@ -210,7 +210,7 @@ export const App: React.FC<AppProps> = ({ env }) => {
             case 'reload':    setState((prev) => ({ ...prev, metroLogs: [] })); stopMetro(addLog, setStatus, env.appRoot).then(() => startMetro(env, addLog, setStatus)); break;
             case 'android':   runAndroid(env, addLog, setStatus); break;
             case 'ios':       runIOS(env, addLog, setStatus); break;
-            case 'stop':      stopAll(addLog, setStatus); break;
+            case 'stop':      stopAll(addLog, setStatus, env.appRoot); break;
             case 'install':   setState((prev) => ({ ...prev, metroLogs: [] })); runInstall(env, addLog, setStatus); break;
             case 'kill':      killOrphanMetro(env.appRoot, addLog, setStatus); break;
             case 'reset':     setState((prev) => ({ ...prev, metroLogs: [] })); stopMetro(addLog, setStatus, env.appRoot).then(() => startMetro(env, addLog, setStatus, true)); break;
