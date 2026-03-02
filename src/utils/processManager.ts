@@ -41,6 +41,21 @@ async function findOrphanMetroPids(): Promise<number[]> {
   }
 }
 
+function getProcessCwd(pid: number): string | undefined {
+  try {
+    return fs.realpathSync(`/proc/${pid}/cwd`);
+  } catch {
+    return undefined;
+  }
+}
+
+function pidBelongsToAppRoot(pid: number, appRoot: string): boolean {
+  const cwd = getProcessCwd(pid);
+  if (!cwd) return false;
+  const normalRoot = path.resolve(appRoot);
+  return cwd === normalRoot || cwd.startsWith(normalRoot + path.sep);
+}
+
 type LogCallback = (entry: Omit<LogEntry, 'id'>) => void;
 type StatusCallback = (process: 'metro' | 'android' | 'ios', status: ProcessStatus, pid?: number) => void;
 
@@ -194,10 +209,10 @@ export async function reattachMetro(
   }
 
   // 2. Fallback: buscar procesos huérfanos con pgrep
-  // Only claim a pid not already tracked by another workspace
+  // Only claim a pid not already tracked by another workspace AND belonging to this appRoot
   const activePids = getAllActivePids();
   const pids = await findOrphanMetroPids();
-  const unclaimed = pids.filter((p) => !activePids.includes(p));
+  const unclaimed = pids.filter((p) => !activePids.includes(p) && pidBelongsToAppRoot(p, appRoot));
   if (unclaimed.length > 0) {
     const pid = unclaimed[0];
     slot.metroDetachedPid = pid;
