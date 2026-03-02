@@ -4,8 +4,8 @@
 
 [![npm version](https://img.shields.io/npm/v/rn-dev-manager.svg)](https://www.npmjs.com/package/rn-dev-manager)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/carlosherrera/rn-dev-manager/pulls)
-[![Issues](https://img.shields.io/github/issues/carlosherrera/rn-dev-manager)](https://github.com/carlosherrera/rn-dev-manager/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/kero-sh/rn-dev-manager/pulls)
+[![Issues](https://img.shields.io/github/issues/kero-sh/rn-dev-manager)](https://github.com/kero-sh/rn-dev-manager/issues)
 
 ## Installation
 
@@ -57,7 +57,7 @@ Contributions are welcome and appreciated! Here's how you can help:
 2. Clone your fork locally:
 
    ```bash
-   git clone https://github.com/<your-username>/rn-dev-manager.git
+   git clone https://github.com/<your-username>/rn-dev-manager.git  # fork of https://github.com/kero-sh/rn-dev-manager
    cd rn-dev-manager
    ```
 
@@ -103,12 +103,12 @@ Contributions are welcome and appreciated! Here's how you can help:
 
 ## Reporting Issues
 
-Found a bug or have a feature request? Please [open an issue](https://github.com/carlosherrera/rn-dev-manager/issues/new/choose) and include:
+Found a bug or have a feature request? Please [open an issue](https://github.com/kero-sh/rn-dev-manager/issues/new/choose) and include:
 
 - **Bug reports**: steps to reproduce, expected vs actual behaviour, Node.js version, OS, and package manager used.
 - **Feature requests**: a clear description of the problem it solves and any alternatives you've considered.
 
-Search [existing issues](https://github.com/carlosherrera/rn-dev-manager/issues) first to avoid duplicates.
+Search [existing issues](https://github.com/kero-sh/rn-dev-manager/issues) first to avoid duplicates.
 
 ---
 
