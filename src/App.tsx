@@ -15,6 +15,9 @@ import {
   runAndroid,
   runIOS,
   runLibraryBuild,
+  runLibraryTest,
+  runLibraryClean,
+  runLibraryPublish,
   runInstall,
   stopAll,
   bombAtómica,
@@ -116,13 +119,15 @@ export const App: React.FC<AppProps> = ({ envs }) => {
   const navActions = useMemo<NavAction[]>(() => {
     if (isLibrary) {
       return [
-        { id: 'build',      key: 'b',       label: t.keys.build },
-        { id: 'stop',       key: 'x',       label: t.keys.stop },
-        { id: 'install',    key: 'Ctrl+I',  label: t.keys.install },
-        { id: 'logs',       key: 'l',       label: t.keys.logs },
-        { id: 'buildlogs',  key: 'd',       label: t.keys.buildLogs },
-        { id: 'view',       key: 'v',       label: t.keys.toggleView },
-        { id: 'quit',       key: 'q',       label: t.keys.quit },
+        { id: 'build',    key: 'b',       label: t.keys.build },
+        { id: 'test',     key: 't',       label: t.keys.test },
+        { id: 'clean',    key: 'c',       label: t.keys.clean },
+        { id: 'publish',  key: 'p',       label: t.keys.publish },
+        { id: 'install',  key: 'Ctrl+I',  label: t.keys.install },
+        { id: 'logs',     key: 'l',       label: t.keys.logs },
+        { id: 'buildlogs',key: 'd',       label: t.keys.buildLogs },
+        { id: 'view',     key: 'v',       label: t.keys.toggleView },
+        { id: 'quit',     key: 'q',       label: t.keys.quit },
       ];
     }
     return [
@@ -185,13 +190,19 @@ export const App: React.FC<AppProps> = ({ envs }) => {
     }
 
     if (input === 'q' || (key.ctrl && input === 'c')) {
-      setState((prev) => ({ ...prev, confirmation: { action: 'quit', message: t.app.quitMessage } }));
+      if (isLibrary) {
+        Promise.all(envs.map((env) => stopAll(addLog, setStatus, env.appRoot))).then(() => exit());
+      } else {
+        setState((prev) => ({ ...prev, confirmation: { action: 'quit', message: t.app.quitMessage } }));
+      }
       return;
     }
 
     if (isLibrary) {
       if (input === 'b') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryBuild(activeEnv, addLog, setStatus); return; }
-      if (input === 'x') { stopAll(addLog, setStatus, activeEnv.appRoot); return; }
+      if (input === 't') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryTest(activeEnv, addLog, setStatus); return; }
+      if (input === 'c') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryClean(activeEnv, addLog, setStatus); return; }
+      if (input === 'p') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryPublish(activeEnv, addLog, setStatus); return; }
       if (key.ctrl && input === 'i') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runInstall(activeEnv, addLog, setStatus); return; }
     } else {
       if (input === 's') { updateActiveWs((ws) => ({ ...ws, metroLogs: [] })); startMetro(activeEnv, addLog, setStatus); return; }
@@ -259,6 +270,9 @@ export const App: React.FC<AppProps> = ({ envs }) => {
         if (action) {
           switch (action.id) {
             case 'build':     updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryBuild(activeEnv, addLog, setStatus); break;
+            case 'test':      updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryTest(activeEnv, addLog, setStatus); break;
+            case 'clean':     updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryClean(activeEnv, addLog, setStatus); break;
+            case 'publish':   updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryPublish(activeEnv, addLog, setStatus); break;
             case 'start':     updateActiveWs((ws) => ({ ...ws, metroLogs: [] })); startMetro(activeEnv, addLog, setStatus); break;
             case 'reload':    reloadMetro(addLog); break;
             case 'android':   runAndroid(activeEnv, addLog, setStatus); break;
@@ -273,7 +287,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
             case 'buildlogs': updateActiveWs((ws) => ({ ...ws, showBuildLogs: !ws.showBuildLogs })); break;
             case 'livelogs':  updateActiveWs((ws) => ({ ...ws, showLiveLogs: !ws.showLiveLogs })); break;
             case 'view':      cycleLayout(); break;
-            case 'quit':      setState((prev) => ({ ...prev, confirmation: { action: 'quit', message: t.app.quitMessage } })); break;
+            case 'quit':      if (isLibrary) { Promise.all(envs.map((env) => stopAll(addLog, setStatus, env.appRoot))).then(() => exit()); } else { setState((prev) => ({ ...prev, confirmation: { action: 'quit', message: t.app.quitMessage } })); } break;
           }
         }
         return;

@@ -294,6 +294,78 @@ export async function runLibraryBuild(
   });
 }
 
+export async function runLibraryTest(
+  env: RNEnvironment,
+  onLog: LogCallback,
+  onStatus: StatusCallback
+) {
+  const slot = getSlot(env.appRoot);
+  if (slot.android) return;
+
+  onStatus('android', 'building');
+  onLog({ source: 'system', level: 'info', text: t.processManager.runningTest, timestamp: new Date() });
+
+  const proc = execa('npm', ['run', 'test', '--workspaces', '--if-present'], { cwd: env.appRoot, reject: false });
+  slot.android = proc;
+
+  attachOutput(proc, 'android', onLog);
+
+  proc.on('exit', (code) => {
+    delete slot.android;
+    const status: ProcessStatus = code === 0 ? 'idle' : 'error';
+    onStatus('android', status);
+    onLog({ source: 'android', level: code === 0 ? 'info' : 'error', text: t.processManager.testExited(code), timestamp: new Date() });
+  });
+}
+
+export async function runLibraryClean(
+  env: RNEnvironment,
+  onLog: LogCallback,
+  onStatus: StatusCallback
+) {
+  const slot = getSlot(env.appRoot);
+  if (slot.android) return;
+
+  onStatus('android', 'building');
+  onLog({ source: 'system', level: 'info', text: t.processManager.runningClean, timestamp: new Date() });
+
+  const proc = execa('npm', ['run', 'clean'], { cwd: env.appRoot, reject: false });
+  slot.android = proc;
+
+  attachOutput(proc, 'android', onLog);
+
+  proc.on('exit', (code) => {
+    delete slot.android;
+    const status: ProcessStatus = code === 0 ? 'idle' : 'error';
+    onStatus('android', status);
+    onLog({ source: 'android', level: code === 0 ? 'info' : 'error', text: t.processManager.cleanExited(code), timestamp: new Date() });
+  });
+}
+
+export async function runLibraryPublish(
+  env: RNEnvironment,
+  onLog: LogCallback,
+  onStatus: StatusCallback
+) {
+  const slot = getSlot(env.appRoot);
+  if (slot.android) return;
+
+  onStatus('android', 'building');
+  onLog({ source: 'system', level: 'info', text: t.processManager.runningPublish, timestamp: new Date() });
+
+  const proc = execa('npx', ['changeset', 'publish'], { cwd: env.appRoot, reject: false });
+  slot.android = proc;
+
+  attachOutput(proc, 'android', onLog);
+
+  proc.on('exit', (code) => {
+    delete slot.android;
+    const status: ProcessStatus = code === 0 ? 'idle' : 'error';
+    onStatus('android', status);
+    onLog({ source: 'android', level: code === 0 ? 'info' : 'error', text: t.processManager.publishExited(code), timestamp: new Date() });
+  });
+}
+
 export async function runAndroid(
   env: RNEnvironment,
   onLog: LogCallback,
