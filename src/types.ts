@@ -7,7 +7,15 @@ export interface ProcessState {
 
 export type LogLayout = 'grid' | 'rows' | 'merged';
 
-export interface AppState {
+export interface LogEntry {
+  id: number;
+  source: 'metro' | 'android' | 'ios' | 'system';
+  level: 'info' | 'warn' | 'error';
+  text: string;
+  timestamp: Date;
+}
+
+export interface WorkspaceState {
   metro: ProcessState;
   android: ProcessState;
   ios: ProcessState;
@@ -19,16 +27,13 @@ export interface AppState {
   showMetroLogs: boolean;
   showBuildLogs: boolean;
   showLiveLogs: boolean;
-  logLayout: LogLayout;
-  confirmation: ConfirmationState | null;
 }
 
-export interface LogEntry {
-  id: number;
-  source: 'metro' | 'android' | 'ios' | 'system';
-  level: 'info' | 'warn' | 'error';
-  text: string;
-  timestamp: Date;
+export interface AppState {
+  workspaces: WorkspaceState[];
+  activeIndex: number;
+  logLayout: LogLayout;
+  confirmation: ConfirmationState | null;
 }
 
 export interface ConfirmationState {

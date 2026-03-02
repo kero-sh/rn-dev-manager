@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export type PackageManager = 'npm' | 'yarn' | 'pnpm';
+export type RepoType = 'app' | 'library';
 
 export interface RNEnvironment {
   packageManager: PackageManager;
@@ -10,6 +11,7 @@ export interface RNEnvironment {
   projectRoot: string;
   appRoot: string;
   nodeVersion: string;
+  repoType: RepoType;
 }
 
 export async function detectEnvironment(cwd: string = process.cwd()): Promise<RNEnvironment> {
@@ -35,6 +37,7 @@ export async function detectEnvironment(cwd: string = process.cwd()): Promise<RN
   const isMonorepo = await detectMonorepo(projectRoot);
 
   const nodeVersion = process.version;
+  const repoType = detectRepoType(cwd);
 
   return {
     packageManager,
@@ -42,7 +45,15 @@ export async function detectEnvironment(cwd: string = process.cwd()): Promise<RN
     projectRoot,
     appRoot,
     nodeVersion,
+    repoType,
   };
+}
+
+function detectRepoType(appRoot: string): RepoType {
+  const hasAndroid = fs.existsSync(path.join(appRoot, 'android'));
+  const hasIos = fs.existsSync(path.join(appRoot, 'ios'));
+  if (hasAndroid || hasIos) return 'app';
+  return 'library';
 }
 
 async function detectMonorepo(projectRoot: string): Promise<boolean> {

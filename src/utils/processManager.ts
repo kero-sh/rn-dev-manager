@@ -44,17 +44,34 @@ async function findOrphanMetroPids(): Promise<number[]> {
 type LogCallback = (entry: Omit<LogEntry, 'id'>) => void;
 type StatusCallback = (process: 'metro' | 'android' | 'ios', status: ProcessStatus, pid?: number) => void;
 
-let logId = 0;
-function nextId() { return ++logId; }
-
-const processes: {
+interface WorkspaceSlot {
   metro?: ExecaChildProcess;
   android?: ExecaChildProcess;
   ios?: ExecaChildProcess;
   deviceLogs?: ExecaChildProcess;
-} = {};
+  metroDetachedPid?: number;
+}
 
-let metroDetachedPid: number | undefined;
+const workspaceSlots = new Map<string, WorkspaceSlot>();
+
+function getSlot(appRoot: string): WorkspaceSlot {
+  if (!workspaceSlots.has(appRoot)) {
+    workspaceSlots.set(appRoot, {});
+  }
+  return workspaceSlots.get(appRoot)!;
+}
+
+function getAllActivePids(): number[] {
+  const pids: number[] = [];
+  for (const slot of workspaceSlots.values()) {
+    if (slot.metro?.pid) pids.push(slot.metro.pid);
+    if (slot.android?.pid) pids.push(slot.android.pid);
+    if (slot.ios?.pid) pids.push(slot.ios.pid);
+    if (slot.deviceLogs?.pid) pids.push(slot.deviceLogs.pid);
+    if (slot.metroDetachedPid) pids.push(slot.metroDetachedPid);
+  }
+  return pids;
+}
 
 function attachOutput(
   proc: ExecaChildProcess,
@@ -81,13 +98,14 @@ export async function startMetro(
   onStatus: StatusCallback,
   resetCache = false
 ) {
-  if (processes.metro) return;
-  if (metroDetachedPid && isProcessAlive(metroDetachedPid)) {
-    onLog({ source: 'system', level: 'info', text: t.processManager.metroReattached(metroDetachedPid), timestamp: new Date() });
-    onStatus('metro', 'running', metroDetachedPid);
+  const slot = getSlot(env.appRoot);
+  if (slot.metro) return;
+  if (slot.metroDetachedPid && isProcessAlive(slot.metroDetachedPid)) {
+    onLog({ source: 'system', level: 'info', text: t.processManager.metroReattached(slot.metroDetachedPid), timestamp: new Date() });
+    onStatus('metro', 'running', slot.metroDetachedPid);
     return;
   }
-  metroDetachedPid = undefined;
+  slot.metroDetachedPid = undefined;
 
   const reattached = await reattachMetro(env.appRoot, onLog, onStatus);
   if (reattached) return;
@@ -97,7 +115,7 @@ export async function startMetro(
   if (resetCache) args.push('--reset-cache');
 
   const proc = execa('npx', args, { cwd: env.appRoot, reject: false, detached: true });
-  processes.metro = proc;
+  slot.metro = proc;
   onLog({ source: 'system', level: 'info', text: t.processManager.startingMetro(resetCache), timestamp: new Date() });
 
   attachOutput(proc, 'metro', onLog);
@@ -107,7 +125,7 @@ export async function startMetro(
   });
 
   proc.on('exit', (code) => {
-    delete processes.metro;
+    delete slot.metro;
     const status: ProcessStatus = code === 0 || code === null ? 'idle' : 'error';
     onStatus('metro', status);
     onLog({ source: 'metro', level: code === 0 || code === null ? 'info' : 'error', text: t.processManager.metroExited(code), timestamp: new Date() });
@@ -115,12 +133,15 @@ export async function startMetro(
 }
 
 export async function stopMetro(onLog: LogCallback, onStatus: StatusCallback, appRoot?: string) {
-  const pid = processes.metro?.pid ?? metroDetachedPid;
+  const slot = appRoot ? getSlot(appRoot) : undefined;
+  const pid = slot?.metro?.pid ?? slot?.metroDetachedPid;
   if (!pid) return;
   onLog({ source: 'system', level: 'info', text: t.processManager.stoppingMetro, timestamp: new Date() });
   treeKill(pid, 'SIGTERM');
-  delete processes.metro;
-  metroDetachedPid = undefined;
+  if (slot) {
+    delete slot.metro;
+    slot.metroDetachedPid = undefined;
+  }
   if (appRoot) {
     const pf = pidFilePath(appRoot);
     if (fs.existsSync(pf)) fs.rmSync(pf);
@@ -128,15 +149,25 @@ export async function stopMetro(onLog: LogCallback, onStatus: StatusCallback, ap
   onStatus('metro', 'idle');
 }
 
+export async function reloadMetro(onLog: LogCallback, port = 8081) {
+  onLog({ source: 'system', level: 'info', text: t.processManager.reloadingMetro, timestamp: new Date() });
+  try {
+    await fetch(`http://localhost:${port}/reload`, { method: 'POST' });
+  } catch (err) {
+    onLog({ source: 'system', level: 'error', text: t.processManager.reloadMetroFailed(err), timestamp: new Date() });
+  }
+}
+
 export function detachMetro(appRoot: string, onLog: LogCallback, onStatus: StatusCallback) {
-  const proc = processes.metro;
+  const slot = getSlot(appRoot);
+  const proc = slot.metro;
   const pid = proc?.pid;
   if (!pid) return;
   proc?.unref();
   const pidFile = pidFilePath(appRoot);
   fs.writeFileSync(pidFile, String(pid), 'utf-8');
-  delete processes.metro;
-  metroDetachedPid = pid;
+  delete slot.metro;
+  slot.metroDetachedPid = pid;
   onStatus('metro', 'detached', pid);
   onLog({ source: 'system', level: 'info', text: t.processManager.metroDetached(pid), timestamp: new Date() });
 }
@@ -146,13 +177,15 @@ export async function reattachMetro(
   onLog: LogCallback,
   onStatus: StatusCallback
 ): Promise<boolean> {
+  const slot = getSlot(appRoot);
+
   // 1. Intentar con .pid file primero
   const pidFile = pidFilePath(appRoot);
   if (fs.existsSync(pidFile)) {
     const raw = fs.readFileSync(pidFile, 'utf-8').trim();
     const pid = parseInt(raw, 10);
     if (!isNaN(pid) && isProcessAlive(pid)) {
-      metroDetachedPid = pid;
+      slot.metroDetachedPid = pid;
       onLog({ source: 'system', level: 'info', text: t.processManager.metroBackground(pid), timestamp: new Date() });
       onStatus('metro', 'running', pid);
       return true;
@@ -161,16 +194,19 @@ export async function reattachMetro(
   }
 
   // 2. Fallback: buscar procesos huérfanos con pgrep
+  // Only claim a pid not already tracked by another workspace
+  const activePids = getAllActivePids();
   const pids = await findOrphanMetroPids();
-  if (pids.length > 0) {
-    const pid = pids[0];
-    metroDetachedPid = pid;
+  const unclaimed = pids.filter((p) => !activePids.includes(p));
+  if (unclaimed.length > 0) {
+    const pid = unclaimed[0];
+    slot.metroDetachedPid = pid;
     onLog({ source: 'system', level: 'warn', text: t.processManager.metroOrphan(pid), timestamp: new Date() });
     onStatus('metro', 'running', pid);
     return true;
   }
 
-  metroDetachedPid = undefined;
+  slot.metroDetachedPid = undefined;
   return false;
 }
 
@@ -181,9 +217,9 @@ export async function killOrphanMetro(
 ): Promise<void> {
   const pids = await findOrphanMetroPids();
 
-  // Exclude any process we are actively using: the spawned handle and the reattached/detached pid.
-  const activePid = processes.metro?.pid;
-  const toKill = pids.filter((p) => p !== activePid && p !== metroDetachedPid);
+  // Exclude ALL pids tracked by any workspace slot
+  const activePids = getAllActivePids();
+  const toKill = pids.filter((p) => !activePids.includes(p));
 
   if (toKill.length === 0) {
     onLog({ source: 'system', level: 'info', text: t.processManager.noOrphans, timestamp: new Date() });
@@ -200,20 +236,47 @@ export async function killOrphanMetro(
 
 export function startDeviceLogs(
   platform: 'android' | 'ios',
+  appRoot: string,
   onLog: LogCallback
 ): void {
-  if (processes.deviceLogs) return;
+  const slot = getSlot(appRoot);
+  if (slot.deviceLogs) return;
   const cmd = platform === 'android' ? 'log-android' : 'log-ios';
   const proc = execa('npx', ['react-native', cmd], { reject: false });
-  processes.deviceLogs = proc;
+  slot.deviceLogs = proc;
   attachOutput(proc, platform, onLog);
-  proc.on('exit', () => { delete processes.deviceLogs; });
+  proc.on('exit', () => { delete slot.deviceLogs; });
 }
 
-export function stopDeviceLogs(): void {
-  const pid = processes.deviceLogs?.pid;
+export function stopDeviceLogs(appRoot: string): void {
+  const slot = getSlot(appRoot);
+  const pid = slot.deviceLogs?.pid;
   if (pid) treeKill(pid, 'SIGTERM');
-  delete processes.deviceLogs;
+  delete slot.deviceLogs;
+}
+
+export async function runLibraryBuild(
+  env: RNEnvironment,
+  onLog: LogCallback,
+  onStatus: StatusCallback
+) {
+  const slot = getSlot(env.appRoot);
+  if (slot.android) return;
+
+  onStatus('android', 'building');
+  onLog({ source: 'system', level: 'info', text: t.processManager.buildingLibrary, timestamp: new Date() });
+
+  const proc = execa('npm', ['run', 'build'], { cwd: env.appRoot, reject: false });
+  slot.android = proc;
+
+  attachOutput(proc, 'android', onLog);
+
+  proc.on('exit', (code) => {
+    delete slot.android;
+    const status: ProcessStatus = code === 0 ? 'idle' : 'error';
+    onStatus('android', status);
+    onLog({ source: 'android', level: code === 0 ? 'info' : 'error', text: t.processManager.libraryBuildExited(code), timestamp: new Date() });
+  });
 }
 
 export async function runAndroid(
@@ -221,23 +284,24 @@ export async function runAndroid(
   onLog: LogCallback,
   onStatus: StatusCallback
 ) {
-  if (processes.android) return;
+  const slot = getSlot(env.appRoot);
+  if (slot.android) return;
 
   onStatus('android', 'building');
   onLog({ source: 'system', level: 'info', text: t.processManager.buildingAndroid, timestamp: new Date() });
 
   const proc = execa('npx', ['react-native', 'run-android'], { cwd: env.appRoot, reject: false });
-  processes.android = proc;
+  slot.android = proc;
 
   attachOutput(proc, 'android', onLog);
 
   proc.on('spawn', () => {
     onStatus('android', 'building', proc.pid);
-    startDeviceLogs('android', onLog);
+    startDeviceLogs('android', env.appRoot, onLog);
   });
 
   proc.on('exit', (code) => {
-    delete processes.android;
+    delete slot.android;
     const status: ProcessStatus = code === 0 ? 'idle' : 'error';
     onStatus('android', status);
     onLog({ source: 'android', level: code === 0 ? 'info' : 'error', text: t.processManager.androidExited(code), timestamp: new Date() });
@@ -249,23 +313,24 @@ export async function runIOS(
   onLog: LogCallback,
   onStatus: StatusCallback
 ) {
-  if (processes.ios) return;
+  const slot = getSlot(env.appRoot);
+  if (slot.ios) return;
 
   onStatus('ios', 'building');
   onLog({ source: 'system', level: 'info', text: t.processManager.buildingIOS, timestamp: new Date() });
 
   const proc = execa('npx', ['react-native', 'run-ios'], { cwd: env.appRoot, reject: false });
-  processes.ios = proc;
+  slot.ios = proc;
 
   attachOutput(proc, 'ios', onLog);
 
   proc.on('spawn', () => {
     onStatus('ios', 'building', proc.pid);
-    startDeviceLogs('ios', onLog);
+    startDeviceLogs('ios', env.appRoot, onLog);
   });
 
   proc.on('exit', (code) => {
-    delete processes.ios;
+    delete slot.ios;
     const status: ProcessStatus = code === 0 ? 'idle' : 'error';
     onStatus('ios', status);
     onLog({ source: 'ios', level: code === 0 ? 'info' : 'error', text: t.processManager.iosExited(code), timestamp: new Date() });
@@ -295,23 +360,26 @@ export async function runInstall(
 }
 
 export async function stopAll(onLog: LogCallback, onStatus: StatusCallback, appRoot?: string) {
-  stopDeviceLogs();
-
-  const pids: Array<{ name: 'metro' | 'android' | 'ios'; pid: number }> = [];
-
-  for (const key of ['metro', 'android', 'ios'] as const) {
-    const proc = processes[key];
-    if (proc?.pid) {
-      pids.push({ name: key, pid: proc.pid });
-      delete processes[key];
-    }
+  if (appRoot) {
+    stopDeviceLogs(appRoot);
   }
 
-  if (metroDetachedPid && !pids.find((p) => p.name === 'metro')) {
-    pids.push({ name: 'metro', pid: metroDetachedPid });
-    metroDetachedPid = undefined;
-    if (appRoot) {
-      const pf = pidFilePath(appRoot);
+  const pids: Array<{ name: 'metro' | 'android' | 'ios'; pid: number }> = [];
+  const slot = appRoot ? getSlot(appRoot) : undefined;
+
+  if (slot) {
+    for (const key of ['metro', 'android', 'ios'] as const) {
+      const proc = slot[key];
+      if (proc?.pid) {
+        pids.push({ name: key, pid: proc.pid });
+        delete slot[key];
+      }
+    }
+
+    if (slot.metroDetachedPid && !pids.find((p) => p.name === 'metro')) {
+      pids.push({ name: 'metro', pid: slot.metroDetachedPid });
+      slot.metroDetachedPid = undefined;
+      const pf = pidFilePath(appRoot!);
       if (fs.existsSync(pf)) fs.rmSync(pf);
     }
   }
@@ -328,7 +396,7 @@ export async function bombAtómica(
   onLog: LogCallback,
   onStatus: StatusCallback
 ) {
-  await stopAll(onLog, onStatus);
+  await stopAll(onLog, onStatus, env.appRoot);
 
   onLog({ source: 'system', level: 'warn', text: t.processManager.bombStarted, timestamp: new Date() });
 
