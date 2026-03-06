@@ -296,7 +296,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
   });
 
   return (
-    <Box flexDirection="column" height={rows - 2} width={columns}>
+    <Box flexDirection="column" height={rows} width={columns}>
       <Header
         envs={envs}
         activeIndex={state.activeIndex}

@@ -117,7 +117,7 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
   metroActive, deviceActive,
   layout, rows, focused, focusedChannel, logOffset = 0,
 }) => {
-  const totalRows = Math.max(12, rows - 8);
+  const totalRows = Math.max(12, rows - 14);
 
   if (layout === 'merged') {
     const allLogs = [...systemLogs, ...metroLogs, ...buildLogs, ...liveLogs]

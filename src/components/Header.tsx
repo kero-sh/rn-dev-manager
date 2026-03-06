@@ -124,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({ envs, activeIndex, workspaces, v
         {/* Left + Center: equal-width auto-grow pair */}
         <Box flexDirection="row" flexGrow={1} alignItems="stretch">
           {/* Left: env info */}
-          <Box flexDirection="column" alignItems="flex-start" flexGrow={1} borderStyle="round" borderColor="#00bfff" paddingX={1}>
+          <Box flexDirection="column" alignItems="flex-start" flexGrow={1} flexShrink={1} flexBasis={0} borderStyle="round" borderColor="#00bfff" paddingX={1}>
             <Text color="#00ffff" bold>{t.header.title}</Text>
             <InfoRow icon="⬡" label={t.header.node}    value={env.nodeVersion} />
             <InfoRow icon="⌂" label={t.header.path}    value={shortPath} valueColor="white" />
@@ -147,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({ envs, activeIndex, workspaces, v
           </Box>
 
           {/* Center: process status */}
-          <Box flexDirection="column" alignItems="flex-start" flexGrow={1} paddingX={2} borderStyle="round" borderColor="#00bfff">
+          <Box flexDirection="column" alignItems="flex-start" flexGrow={1} flexShrink={1} flexBasis={0} paddingX={2} borderStyle="round" borderColor="#00bfff">
             <Text color="#00ffff" bold>{t.status.title}</Text>
             <StatusRow label={t.status.metro + ':'} state={metro} />
             <StatusRow label={t.status.android + ':'} state={android} />
@@ -156,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({ envs, activeIndex, workspaces, v
         </Box>
 
         {/* Right: logo + version + layout badge */}
-        <Box flexDirection="column" alignItems="flex-end" paddingX={1}>
+        <Box flexDirection="column" alignItems="flex-end" flexShrink={0} paddingX={1}>
           {ASCII_LOGO.map((line, i) => (
             <Text key={i} color="#00ffff" bold>{line}</Text>
           ))}
