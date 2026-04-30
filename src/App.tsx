@@ -26,9 +26,8 @@ import {
   killOrphanMetro,
 } from './utils/processManager.js';
 import { loadPrefs, savePrefs } from './utils/prefs.js';
-import { AppState, WorkspaceState, LogEntry, LogLayout, ProcessStatus } from './types.js';
-import { useNavigation, NavAction } from './hooks/useNavigation.js';
-import type { LogChannel } from './components/LogsPanel.js';
+import { AppState, WorkspaceState, LogEntry, LogLayout, ProcessStatus, MonorepoPackage } from './types.js';
+import { useNavigation, NavAction, LogChannel } from './hooks/useNavigation.js';
 
 const _require = createRequire(import.meta.url);
 const VERSION: string = _require('../package.json').version;
@@ -52,13 +51,17 @@ function buildWorkspaceState(): WorkspaceState {
     showMetroLogs:  false,
     showBuildLogs:  false,
     showLiveLogs:   false,
+    packages:       [],
   };
 }
 
 function buildInitialState(envs: RNEnvironment[]): AppState {
   const prefs = loadPrefs();
   return {
-    workspaces:   envs.map(() => buildWorkspaceState()),
+    workspaces:   envs.map((env) => ({
+      ...buildWorkspaceState(),
+      packages: env.workspacePackages.map((wp) => ({ ...wp, buildStatus: 'idle' as const })),
+    })),
     activeIndex:  0,
     logLayout:    prefs.logLayout ?? 'grid',
     confirmation: null,
@@ -105,8 +108,22 @@ export const App: React.FC<AppProps> = ({ envs }) => {
     });
   }, []);
 
+  const makePackageStatusForIdx = useCallback((idx: number) => (pkgName: string, status: ProcessStatus) => {
+    setState((prev) => {
+      const workspaces = prev.workspaces.map((ws, i) => {
+        if (i !== idx) return ws;
+        return {
+          ...ws,
+          packages: ws.packages.map((p) => p.name === pkgName ? { ...p, buildStatus: status } : p),
+        };
+      });
+      return { ...prev, workspaces };
+    });
+  }, []);
+
   const addLog = makeLogForIdx(state.activeIndex);
   const setStatus = makeStatusForIdx(state.activeIndex);
+  const setPackageStatus = makePackageStatusForIdx(state.activeIndex);
 
   useEffect(() => {
     envs.forEach((env, idx) => {
@@ -199,7 +216,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
     }
 
     if (isLibrary) {
-      if (input === 'b') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryBuild(activeEnv, addLog, setStatus); return; }
+      if (input === 'b') { updateActiveWs((ws) => ({ ...ws, buildLogs: [], packages: ws.packages.map((p) => ({ ...p, buildStatus: 'idle' as const })) })); runLibraryBuild(activeEnv, addLog, setStatus, setPackageStatus); return; }
       if (input === 't') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryTest(activeEnv, addLog, setStatus); return; }
       if (input === 'c') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryClean(activeEnv, addLog, setStatus); return; }
       if (input === 'p') { updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryPublish(activeEnv, addLog, setStatus); return; }
@@ -237,7 +254,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
           : focusedLogChannel === 'build' ? activeWs.buildLogs.length
           : focusedLogChannel === 'live'  ? activeWs.liveLogs.length
           : activeWs.systemLogs.length;
-        nav.scrollLog('up', len, maxVisibleLogs);
+        nav.scrollLog('up', focusedLogChannel, len, maxVisibleLogs);
         return;
       }
       if (key.downArrow) {
@@ -245,7 +262,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
           : focusedLogChannel === 'build' ? activeWs.buildLogs.length
           : focusedLogChannel === 'live'  ? activeWs.liveLogs.length
           : activeWs.systemLogs.length;
-        nav.scrollLog('down', len, maxVisibleLogs);
+        nav.scrollLog('down', focusedLogChannel, len, maxVisibleLogs);
         return;
       }
       if (input === '1') { setFocusedLogChannel('system'); return; }
@@ -269,7 +286,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
         const action = nav.focusedAction;
         if (action) {
           switch (action.id) {
-            case 'build':     updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryBuild(activeEnv, addLog, setStatus); break;
+            case 'build':     updateActiveWs((ws) => ({ ...ws, buildLogs: [], packages: ws.packages.map((p) => ({ ...p, buildStatus: 'idle' as const })) })); runLibraryBuild(activeEnv, addLog, setStatus, setPackageStatus); break;
             case 'test':      updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryTest(activeEnv, addLog, setStatus); break;
             case 'clean':     updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryClean(activeEnv, addLog, setStatus); break;
             case 'publish':   updateActiveWs((ws) => ({ ...ws, buildLogs: [] })); runLibraryPublish(activeEnv, addLog, setStatus); break;
@@ -306,6 +323,7 @@ export const App: React.FC<AppProps> = ({ envs }) => {
         ios={activeWs.ios}
         workspaces={state.workspaces}
         logLayout={state.logLayout}
+        packages={activeWs.packages}
       />
       <LogsPanel
         systemLogs={activeWs.systemLogs}
@@ -322,7 +340,8 @@ export const App: React.FC<AppProps> = ({ envs }) => {
         rows={rows}
         focused={nav.focusedPanel === 'logs'}
         focusedChannel={focusedLogChannel}
-        logOffset={nav.logOffset}
+        logOffsets={nav.logOffsets}
+        isLibrary={isLibrary}
       />
       {state.confirmation && (
         <ConfirmModal action={state.confirmation.action} message={state.confirmation.message} />

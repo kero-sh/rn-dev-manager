@@ -1,4 +1,12 @@
-export type ProcessStatus = 'idle' | 'running' | 'building' | 'error' | 'detached';
+export type ProcessStatus = 'idle' | 'running' | 'building' | 'done' | 'error' | 'detached';
+
+export interface MonorepoPackage {
+  name: string;
+  version: string;
+  path: string;
+  private: boolean;
+  buildStatus: ProcessStatus;
+}
 
 export interface ProcessState {
   status: ProcessStatus;
@@ -27,6 +35,7 @@ export interface WorkspaceState {
   showMetroLogs: boolean;
   showBuildLogs: boolean;
   showLiveLogs: boolean;
+  packages: MonorepoPackage[];
 }
 
 export interface AppState {

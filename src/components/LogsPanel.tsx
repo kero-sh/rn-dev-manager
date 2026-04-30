@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import { LogEntry, LogLayout } from '../types.js';
 import { t } from '../i18n/index.js';
+import type { LogChannel } from '../hooks/useNavigation.js';
 
 const SOURCE_COLORS: Record<LogEntry['source'], string> = {
   metro:   '#1e90ff',
@@ -29,10 +30,11 @@ interface SinglePanelProps {
   logOffset: number;
   focused: boolean;
   autoEmerge: boolean;
+  height: number;
 }
 
 const SingleLogPanel: React.FC<SinglePanelProps> = ({
-  title, toggleKey, logs, visible, maxLines, logOffset, focused, autoEmerge,
+  title, toggleKey, logs, visible, maxLines, logOffset, focused, autoEmerge, height,
 }) => {
   const isVisible = visible || autoEmerge;
   const end = logs.length - logOffset;
@@ -45,6 +47,7 @@ const SingleLogPanel: React.FC<SinglePanelProps> = ({
         borderStyle="round"
         borderColor="#404040"
         paddingX={1}
+        height={height}
       >
         <Text color="#606060">
           {title}
@@ -63,7 +66,8 @@ const SingleLogPanel: React.FC<SinglePanelProps> = ({
       borderColor={focused ? '#00ffff' : autoEmerge ? '#ff8c00' : '#00bfff'}
       paddingX={1}
       flexDirection="column"
-      flexGrow={1}
+      height={height}
+      overflow="hidden"
     >
       <Text color={autoEmerge ? '#ff8c00' : '#00ffff'} bold>
         {title}
@@ -73,10 +77,12 @@ const SingleLogPanel: React.FC<SinglePanelProps> = ({
           [{toggleKey}] {t.logs.toggleHide}
         </Text>
       </Text>
-      {visibleLogs.length === 0 ? (
-        <Text color="#808080" dimColor>—</Text>
-      ) : (
-        visibleLogs.map((entry) => (
+      {Array.from({ length: maxLines }, (_, i) => {
+        const entry = visibleLogs[i];
+        if (!entry) {
+          return <Text key={`empty-${i}`}>{' '}</Text>;
+        }
+        return (
           <Box key={entry.id}>
             <Text color={SOURCE_COLORS[entry.source] as any} dimColor>
               {formatSource(entry.source)}{' '}
@@ -85,13 +91,13 @@ const SingleLogPanel: React.FC<SinglePanelProps> = ({
               {entry.text}
             </Text>
           </Box>
-        ))
-      )}
+        );
+      })}
     </Box>
   );
 };
 
-export type LogChannel = 'system' | 'metro' | 'build' | 'live';
+export type { LogChannel };
 
 export interface LogsPanelProps {
   systemLogs: LogEntry[];
@@ -108,20 +114,22 @@ export interface LogsPanelProps {
   rows: number;
   focused?: boolean;
   focusedChannel?: LogChannel;
-  logOffset?: number;
+  logOffsets?: Record<LogChannel, number>;
+  isLibrary?: boolean;
 }
 
 export const LogsPanel: React.FC<LogsPanelProps> = ({
   systemLogs, metroLogs, buildLogs, liveLogs,
   showSystemLogs, showMetroLogs, showBuildLogs, showLiveLogs,
   metroActive, deviceActive,
-  layout, rows, focused, focusedChannel, logOffset = 0,
+  layout, rows, focused, focusedChannel, logOffsets, isLibrary,
 }) => {
   const totalRows = Math.max(12, rows - 14);
 
   if (layout === 'merged') {
-    const allLogs = [...systemLogs, ...metroLogs, ...buildLogs, ...liveLogs]
-      .sort((a, b) => a.id - b.id);
+    const allLogs = isLibrary
+      ? [...systemLogs, ...buildLogs].sort((a, b) => a.id - b.id)
+      : [...systemLogs, ...metroLogs, ...buildLogs, ...liveLogs].sort((a, b) => a.id - b.id);
     const maxLines = Math.max(4, totalRows - 2);
     return (
       <Box flexDirection="column" flexGrow={1}>
@@ -131,7 +139,8 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
           logs={allLogs}
           visible={showSystemLogs || showMetroLogs || showBuildLogs || showLiveLogs}
           maxLines={maxLines}
-          logOffset={logOffset}
+          height={maxLines + 3}
+          logOffset={logOffsets?.['system'] ?? 0}
           focused={focused === true}
           autoEmerge={(metroActive || deviceActive) && !showSystemLogs}
         />
@@ -139,11 +148,7 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
     );
   }
 
-  const maxLines = layout === 'grid'
-    ? Math.max(3, Math.floor(totalRows / 2) - 2)
-    : Math.max(3, Math.floor(totalRows / 4) - 1);
-
-  const panels = [
+  const allPanels = [
     {
       key: 'system' as LogChannel,
       title: t.logs.systemTitle,
@@ -152,14 +157,14 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
       visible: showSystemLogs,
       autoEmerge: false,
     },
-    {
+    ...(!isLibrary ? [{
       key: 'metro' as LogChannel,
       title: t.logs.metroTitle,
       toggleKey: 'm',
       logs: metroLogs,
       visible: showMetroLogs,
       autoEmerge: metroActive && !showMetroLogs,
-    },
+    }] : []),
     {
       key: 'build' as LogChannel,
       title: t.logs.buildTitle,
@@ -168,20 +173,25 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
       visible: showBuildLogs,
       autoEmerge: deviceActive && !showBuildLogs,
     },
-    {
+    ...(!isLibrary ? [{
       key: 'live' as LogChannel,
       title: t.logs.liveTitle,
       toggleKey: 'e',
       logs: liveLogs,
       visible: showLiveLogs,
       autoEmerge: deviceActive && !showLiveLogs,
-    },
+    }] : []),
   ];
+
+  const panelCount = allPanels.length;
+  const maxLines = layout === 'grid'
+    ? Math.max(3, Math.floor(totalRows / 2) - 2)
+    : Math.max(3, Math.floor(totalRows / panelCount) - 1);
 
   if (layout === 'rows') {
     return (
       <Box flexDirection="column" flexGrow={1}>
-        {panels.map((p) => (
+        {allPanels.map((p) => (
           <SingleLogPanel
             key={p.key}
             title={p.title}
@@ -189,7 +199,8 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
             logs={p.logs}
             visible={p.visible}
             maxLines={maxLines}
-            logOffset={focusedChannel === p.key ? logOffset : 0}
+            height={maxLines + 3}
+            logOffset={logOffsets?.[p.key] ?? 0}
             focused={focused === true && focusedChannel === p.key}
             autoEmerge={p.autoEmerge}
           />
@@ -198,8 +209,42 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
     );
   }
 
-  // grid: 2 columns × 2 rows
-  const [topLeft, topRight, botLeft, botRight] = panels;
+  // grid layout
+  if (isLibrary) {
+    // 2 panels side by side: system | build
+    const [left, right] = allPanels;
+    return (
+      <Box flexDirection="column" flexGrow={1}>
+        <Box flexDirection="row" flexGrow={1}>
+          <Box flexDirection="column" flexGrow={1}>
+            <SingleLogPanel
+              title={left.title} toggleKey={left.toggleKey}
+              logs={left.logs} visible={left.visible}
+              maxLines={maxLines}
+              height={maxLines + 3}
+              logOffset={logOffsets?.[left.key] ?? 0}
+              focused={focused === true && focusedChannel === left.key}
+              autoEmerge={left.autoEmerge}
+            />
+          </Box>
+          <Box flexDirection="column" flexGrow={1}>
+            <SingleLogPanel
+              title={right.title} toggleKey={right.toggleKey}
+              logs={right.logs} visible={right.visible}
+              maxLines={maxLines}
+              height={maxLines + 3}
+              logOffset={logOffsets?.[right.key] ?? 0}
+              focused={focused === true && focusedChannel === right.key}
+              autoEmerge={right.autoEmerge}
+            />
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
+  // grid: 2 columns × 2 rows (all 4 panels)
+  const [topLeft, topRight, botLeft, botRight] = allPanels;
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box flexDirection="row" flexGrow={1}>
@@ -208,7 +253,8 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
             title={topLeft.title} toggleKey={topLeft.toggleKey}
             logs={topLeft.logs} visible={topLeft.visible}
             maxLines={maxLines}
-            logOffset={focusedChannel === topLeft.key ? logOffset : 0}
+            height={maxLines + 3}
+            logOffset={logOffsets?.[topLeft.key] ?? 0}
             focused={focused === true && focusedChannel === topLeft.key}
             autoEmerge={topLeft.autoEmerge}
           />
@@ -218,7 +264,8 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
             title={topRight.title} toggleKey={topRight.toggleKey}
             logs={topRight.logs} visible={topRight.visible}
             maxLines={maxLines}
-            logOffset={focusedChannel === topRight.key ? logOffset : 0}
+            height={maxLines + 3}
+            logOffset={logOffsets?.[topRight.key] ?? 0}
             focused={focused === true && focusedChannel === topRight.key}
             autoEmerge={topRight.autoEmerge}
           />
@@ -230,7 +277,8 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
             title={botLeft.title} toggleKey={botLeft.toggleKey}
             logs={botLeft.logs} visible={botLeft.visible}
             maxLines={maxLines}
-            logOffset={focusedChannel === botLeft.key ? logOffset : 0}
+            height={maxLines + 3}
+            logOffset={logOffsets?.[botLeft.key] ?? 0}
             focused={focused === true && focusedChannel === botLeft.key}
             autoEmerge={botLeft.autoEmerge}
           />
@@ -240,7 +288,8 @@ export const LogsPanel: React.FC<LogsPanelProps> = ({
             title={botRight.title} toggleKey={botRight.toggleKey}
             logs={botRight.logs} visible={botRight.visible}
             maxLines={maxLines}
-            logOffset={focusedChannel === botRight.key ? logOffset : 0}
+            height={maxLines + 3}
+            logOffset={logOffsets?.[botRight.key] ?? 0}
             focused={focused === true && focusedChannel === botRight.key}
             autoEmerge={botRight.autoEmerge}
           />

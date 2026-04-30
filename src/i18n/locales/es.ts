@@ -21,8 +21,14 @@ export const es: Locale = {
     idle: 'IDLE',
     running: 'CORRIENDO',
     building: 'BUILDING',
+    done: 'LISTO',
     error: 'ERROR',
     detached: 'DETACHED',
+  },
+  monorepo: {
+    title: 'Paquetes',
+    build: 'Build',
+    status: 'Estado',
   },
   logs: {
     title: 'Logs',

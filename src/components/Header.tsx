@@ -4,7 +4,7 @@ import Spinner from 'ink-spinner';
 import { RNEnvironment } from '../utils/detectEnv.js';
 import { useGitInfo } from '../hooks/useGitInfo.js';
 import { t } from '../i18n/index.js';
-import { ProcessState, ProcessStatus, LogLayout, WorkspaceState } from '../types.js';
+import { ProcessState, ProcessStatus, LogLayout, WorkspaceState, MonorepoPackage } from '../types.js';
 import * as os from 'os';
 import * as path from 'path';
 
@@ -17,6 +17,7 @@ interface HeaderProps {
   android: ProcessState;
   ios: ProcessState;
   logLayout: LogLayout;
+  packages: MonorepoPackage[];
 }
 
 const COL_ICON = 3;
@@ -43,10 +44,44 @@ function statusDot(status: ProcessStatus): { symbol: string; color: string } {
   switch (status) {
     case 'running':  return { symbol: '●', color: '#adff2f' };
     case 'building': return { symbol: '◌', color: '#ff8c00' };
+    case 'done':     return { symbol: '✓', color: '#adff2f' };
     case 'error':    return { symbol: '●', color: '#ff4500' };
     default:         return { symbol: '○', color: '#808080' };
   }
 }
+
+const MonorepoPackagesPanel: React.FC<{ packages: MonorepoPackage[]; buildStatus: ProcessStatus }> = ({ packages, buildStatus }) => {
+  const isBuilding = buildStatus === 'building';
+  return (
+    <Box flexDirection="column" alignItems="flex-start" flexGrow={1} flexShrink={1} flexBasis={0} paddingX={1} borderStyle="round" borderColor="#00bfff">
+      <Box>
+        <Text color="#00ffff" bold>{t.monorepo.title}  </Text>
+        {isBuilding && <Text color="#ff8c00"><Spinner type="dots" /></Text>}
+      </Box>
+      {packages.length === 0 ? (
+        <Text color="#808080" dimColor>—</Text>
+      ) : (
+        packages.map((pkg) => {
+          const { symbol, color } = statusDot(pkg.buildStatus);
+          const isPkgBuilding = pkg.buildStatus === 'building';
+          const shortName = pkg.name.includes('/') ? pkg.name.split('/').pop()! : pkg.name;
+          return (
+            <Box key={pkg.name}>
+              {isPkgBuilding ? (
+                <Text color="#ff8c00"><Spinner type="dots" />{' '}</Text>
+              ) : (
+                <Text color={color as any}>{symbol} </Text>
+              )}
+              <Text color="white" dimColor={pkg.buildStatus === 'idle'}>{shortName.padEnd(18)}</Text>
+              <Text color="#808080" dimColor>v{pkg.version}  </Text>
+              {pkg.private && <Text color="#606060" dimColor>private</Text>}
+            </Box>
+          );
+        })
+      )}
+    </Box>
+  );
+};
 
 const StatusRow: React.FC<{ label: string; state: ProcessState }> = ({ label, state }) => {
   const { symbol, color } = statusDot(state.status);
@@ -109,7 +144,7 @@ const WorkspaceTabs: React.FC<{
   </Box>
 );
 
-export const Header: React.FC<HeaderProps> = ({ envs, activeIndex, workspaces, version, metro, android, ios, logLayout }) => {
+export const Header: React.FC<HeaderProps> = ({ envs, activeIndex, workspaces, version, metro, android, ios, logLayout, packages }) => {
   const env = envs[activeIndex];
   const git = useGitInfo(env.appRoot);
   const shortPath = shortenPath(env.appRoot);
@@ -146,13 +181,17 @@ export const Header: React.FC<HeaderProps> = ({ envs, activeIndex, workspaces, v
             <InfoRow icon="⚙" label={t.header.pkgMgr} value={env.packageManager + (env.isMonorepo ? ` · ${t.header.monorepo}` : '')} valueColor="#ffa07a" />
           </Box>
 
-          {/* Center: process status */}
-          <Box flexDirection="column" alignItems="flex-start" flexGrow={1} flexShrink={1} flexBasis={0} paddingX={2} borderStyle="round" borderColor="#00bfff">
-            <Text color="#00ffff" bold>{t.status.title}</Text>
-            <StatusRow label={t.status.metro + ':'} state={metro} />
-            <StatusRow label={t.status.android + ':'} state={android} />
-            <StatusRow label={t.status.ios + ':'} state={ios} />
-          </Box>
+          {/* Center: monorepo packages list OR process status */}
+          {env.isMonorepo && packages.length > 0 ? (
+            <MonorepoPackagesPanel packages={packages} buildStatus={android.status} />
+          ) : (
+            <Box flexDirection="column" alignItems="flex-start" flexGrow={1} flexShrink={1} flexBasis={0} paddingX={2} borderStyle="round" borderColor="#00bfff">
+              <Text color="#00ffff" bold>{t.status.title}</Text>
+              <StatusRow label={t.status.metro + ':'} state={metro} />
+              <StatusRow label={t.status.android + ':'} state={android} />
+              <StatusRow label={t.status.ios + ':'} state={ios} />
+            </Box>
+          )}
         </Box>
 
         {/* Right: logo + version + layout badge */}

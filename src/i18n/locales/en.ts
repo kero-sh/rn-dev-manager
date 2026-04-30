@@ -19,8 +19,14 @@ export const en = {
     idle: 'IDLE',
     running: 'RUNNING',
     building: 'BUILDING',
+    done: 'DONE',
     error: 'ERROR',
     detached: 'DETACHED',
+  },
+  monorepo: {
+    title: 'Packages',
+    build: 'Build',
+    status: 'Status',
   },
   logs: {
     title: 'Logs',

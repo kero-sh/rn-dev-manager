@@ -58,6 +58,7 @@ function pidBelongsToAppRoot(pid: number, appRoot: string): boolean {
 
 type LogCallback = (entry: Omit<LogEntry, 'id'>) => void;
 type StatusCallback = (process: 'metro' | 'android' | 'ios', status: ProcessStatus, pid?: number) => void;
+export type PackageStatusCallback = (pkgName: string, status: ProcessStatus) => void;
 
 interface WorkspaceSlot {
   metro?: ExecaChildProcess;
@@ -273,7 +274,8 @@ export function stopDeviceLogs(appRoot: string): void {
 export async function runLibraryBuild(
   env: RNEnvironment,
   onLog: LogCallback,
-  onStatus: StatusCallback
+  onStatus: StatusCallback,
+  onPackageStatus?: PackageStatusCallback
 ) {
   const slot = getSlot(env.appRoot);
   if (slot.android) return;
@@ -281,15 +283,42 @@ export async function runLibraryBuild(
   onStatus('android', 'building');
   onLog({ source: 'system', level: 'info', text: t.processManager.buildingLibrary, timestamp: new Date() });
 
-  const proc = execa('npm', ['run', 'build'], { cwd: env.appRoot, reject: false });
+  const args = env.isMonorepo
+    ? ['run', 'build', '--workspaces', '--if-present']
+    : ['run', 'build'];
+  const proc = execa('npm', args, { cwd: env.appRoot, reject: false });
   slot.android = proc;
 
-  attachOutput(proc, 'android', onLog);
+  const currentPkg: { name: string | null } = { name: null };
+
+  proc.stdout?.on('data', (data: Buffer) => {
+    const lines = data.toString().split('\n').filter(Boolean);
+    for (const line of lines) {
+      onLog({ source: 'android', level: 'info', text: line, timestamp: new Date() });
+      if (onPackageStatus) {
+        const wsMatch = line.match(/^>\s+(@?[\w\-./@]+)@[\d.]+\s+build/);
+        if (wsMatch) {
+          if (currentPkg.name) onPackageStatus(currentPkg.name, 'done');
+          currentPkg.name = wsMatch[1];
+          onPackageStatus(currentPkg.name, 'building');
+        }
+      }
+    }
+  });
+  proc.stderr?.on('data', (data: Buffer) => {
+    const lines = data.toString().split('\n').filter(Boolean);
+    for (const line of lines) {
+      onLog({ source: 'android', level: 'error', text: line, timestamp: new Date() });
+    }
+  });
 
   proc.on('exit', (code) => {
     delete slot.android;
-    const status: ProcessStatus = code === 0 ? 'idle' : 'error';
-    onStatus('android', status);
+    const exitStatus: ProcessStatus = code === 0 ? 'idle' : 'error';
+    onStatus('android', exitStatus);
+    if (onPackageStatus && currentPkg.name) {
+      onPackageStatus(currentPkg.name, code === 0 ? 'done' : 'error');
+    }
     onLog({ source: 'android', level: code === 0 ? 'info' : 'error', text: t.processManager.libraryBuildExited(code), timestamp: new Date() });
   });
 }
